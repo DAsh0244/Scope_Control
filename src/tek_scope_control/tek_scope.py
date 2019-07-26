@@ -1,36 +1,104 @@
 from prologix_usb import Scope, ScopeSettings
 from enum import Enum
 from collections import namedtuple
+from typing import (
+    Sequence as _Sequence,
+    NamedTuple as _NamedTuple
+    )
 
-_WaveformPreamble = namedtuple('WaveformPreamble', 'point_bytes bit_depth encoding binary_fmt byte_order num_points ch_info point_fmt x_timestep point_offset x_zero x_unit y_multiplier y_zero y_offset y_unit')
+class TekBinFmt(Enum):
+    SignedInt = 'RI'
+    UnsignedInt = 'RP'
+
+class TekByteOrder(Enum):
+    MSB = 'MSB'
+    LSB = 'LSB'
+
+class TekEncoding(Enum):
+    ASCII = 'ASCII'
+    BIN = 'BIN'
+
+class TekPointFmt(Enum):
+    ENV = 'ENV'
+    Y = 'Y'
+
+# container initial declarations
 _WaveformID = namedtuple('WaveformID', 'name coupling vertical_scale horizontal_scale points mode')
+_WaveformPreamble = namedtuple('WaveformPreamble', 'point_bytes bit_depth encoding binary_fmt byte_order num_points ch_info point_fmt x_timestep point_offset x_zero x_unit y_multiplier y_zero y_offset y_unit')
 
-class WaveformPreamble(_WaveformPreamble):
-    # BYT_NR <NR1>;BIT_NR <NR1>;ENCDG { ASC | BIN };
-    # BN_FMT { RI | RP };BYT_OR { LSB | MSB };NR_PT <NR1>;
-    # WFID <QSTRING>;PT_FMT {ENV | Y};XINCR <NR3>;
-    # PT_OFF <NR1>;XZERO <NR3>;XUNIT<QSTRING>;YMULT <NR3>;
-    # YZERO <NR3>;YOFF <NR3>;YUNIT <QSTRING>
-            
+# test str for waveform preamble and ID
+# '1;8;BIN;RP;MSB;2500;"CH1, DC coupling, 1.0E1 V/div, 2.5e-7 s/div, 2500 points, Sample Mode",Y;1.0E-9;0;-3.2E-7;"s";4.0E-1;0.0E0,1.29E2;"Volts"\n'
+
+class WaveformID(_WaveformID):
     @classmethod
-    def from_str(cls, preamble):
+    def from_str(cls, line:str):
+        # "Ch1, DC coupling, 1.0E1 V/div, 2.5E-7 s/div, 2500 points, Sample mode";
+        # 'name coupling vertical_scale horizontal_scale points mode
+        ch,coupling,vertical_scale,horizontal_scale,points,mode = list(map(str.strip,line.strip('"').split(',')))
+        return cls(
+            ch,
+            coupling[:2],
+            vertical_scale,
+            horizontal_scale,
+            int(points.split()[0]),
+            mode
+        )
+
+# BYT_NR <NR1>;BIT_NR <NR1>;ENCDG { ASC | BIN };
+# BN_FMT { RI | RP };BYT_OR { LSB | MSB };NR_PT <NR1>;
+# WFID <QSTRING>;PT_FMT {ENV | Y};XINCR <NR3>;
+# PT_OFF <NR1>;XZERO <NR3>;XUNIT<QSTRING>;YMULT <NR3>;
+# YZERO <NR3>;YOFF <NR3>;YUNIT <QSTRING>
+# class WaveformPreamble(_NamedTuple):
+#     point_bytes:int
+#     bit_depth:int
+#     encoding:TekEncoding
+#     binary_fmt:TekBinFmt
+#     byte_order:TekByteOrder
+#     num_points:int
+#     ch_info:WaveformID
+#     point_fmt:TekPointFmt
+#     x_timestep:float
+#     point_offset:int
+#     x_zero:float
+#     x_unit:str
+#     y_multiplier:float
+#     y_zero:float
+#     y_offset:float
+#     y_unit:str     
+
+#     @classmethod
+#     def from_str(cls, preamble:str):
+#         BYT_NR,BIT_NR,ENCDG,BN_FMT,BYT_OR,NR_PT,WFID,PT_FMT,XINCR,PT_OFF,XZERO,XUNIT,YMULT,YZERO,YOFF,YUNIT = list(map(str.strip,preamble.split(';')))
+#         return cls(
+#             int(BYT_NR),
+#             int(BIT_NR),
+#             TekEncoding(ENCDG),
+#             TekBinFmt(BN_FMT),
+#             TekByteOrder(BYT_OR),
+#             int(NR_PT),
+#             WaveformID.from_str(WFID),
+#             TekPointFmt(PT_FMT),
+#             float(XINCR),
+#             int(PT_OFF),
+#             float(XZERO),
+#             XUNIT,
+#             float(YMULT),
+#             float(YZERO),
+#             float(YOFF),
+#             YUNIT
+#         )
+
+
+# BYT_NR <NR1>;BIT_NR <NR1>;ENCDG { ASC | BIN };
+# BN_FMT { RI | RP };BYT_OR { LSB | MSB };NR_PT <NR1>;
+# WFID <QSTRING>;PT_FMT {ENV | Y};XINCR <NR3>;
+# PT_OFF <NR1>;XZERO <NR3>;XUNIT<QSTRING>;YMULT <NR3>;
+# YZERO <NR3>;YOFF <NR3>;YUNIT <QSTRING>
+class WaveformPreamble(_WaveformPreamble):            
+    @classmethod
+    def from_str(cls, preamble:str):
         BYT_NR,BIT_NR,ENCDG,BN_FMT,BYT_OR,NR_PT,WFID,PT_FMT,XINCR,PT_OFF,XZERO,XUNIT,YMULT,YZERO,YOFF,YUNIT = list(map(str.strip,preamble.split(';')))
-        # point_bytes 
-        # bit_depth 
-        # encoding 
-        # binary_fmt 
-        # byte_order 
-        # num_points 
-        # ch_info 
-        # point_fmt 
-        # x_timestep
-        # point_offset
-        # x_zero
-        # x_unit
-        # y_multiplier
-        # y_zero
-        # y_offset
-        # y_unit
         return cls(
             int(BYT_NR),
             int(BIT_NR),
@@ -50,37 +118,6 @@ class WaveformPreamble(_WaveformPreamble):
             YUNIT
         )
 
-class WaveformID(_WaveformID):
-    @classmethod
-    def from_str(cls, line):
-        # "Ch1, DC coupling, 1.0E1 V/div, 2.5E-7 s/div, 2500 points, Sample mode";
-        # 'name coupling vertical_scale horizontal_scale points mode
-        ch,coupling,vertical_scale,horizontal_scale,points,mode = list(map(str.strip,line.strip('"').split(',')))
-        return cls(
-            ch,
-            coupling[:2],
-            vertical_scale,
-            horizontal_scale,
-            int(points.split()[0]),
-            mode
-        )
-
-class TekBinFmt(Enum):
-    ReversePolishSigned = 'RI'
-    ReversePolishUnsigned = 'RP'
-
-class TekByteOrder(Enum):
-    MSB = 'MSB'
-    LSB = 'LSB'
-
-class TekEncoding(Enum):
-    ASCII = 'ASCII'
-    BIN = 'BIN'
-
-class TekPointFmt(Enum):
-    ENV = 'ENV'
-    Y = 'Y'
-
 class TekSettings(ScopeSettings):
     pass
 
@@ -92,7 +129,13 @@ class TekScope(Scope):
         self._settings = settings
         self._id = self.get_id()
         
-    def capture_waveform(self, raw=False):
+    def measure(self):
+        pass
+
+    def set_encoding(self):
+        pass
+
+    def capture_waveform(self, raw:bool=False):
         # get preamble
         self.send_cmd('WFMPre?')
         preamble = self.read_response().strip()
@@ -104,8 +147,31 @@ class TekScope(Scope):
             preamble = WaveformPreamble.from_str(preamble)
         return preamble, data
 
+    # @staticmethod
+    # def calculate_voltages(raw_samples:_Sequence,preamble:WaveformPreamble):
+    #     return [preamble.y_zero + (preamble.y_multiplier*(entry-preamble.y_offset)) for entry in raw_samples]
+
+    # @staticmethod
+    # def calculate_timesteps(samples:_Sequence,preamble:WaveformPreamble):
+    #     return [preamble.x_zero + preamble.x_timestep*(i - preamble.point_offset) for i in range(len(samples))]
+
     @staticmethod
-    def save_waveform_csv(outfile,preamble,data):
+    def convert_raw_samples(raw_samples:_Sequence,preamble:WaveformPreamble,return_raw:bool=False):
+        voltages = []
+        times = []
+        for idx, entry in enumerate(raw_samples):
+                # XZEro + XINcr (n -- PT_OFf)
+                # ((curve_in_dl – YOFF_in_dl) * YMUlt) + YZERO_in_YUNits
+                times.append(preamble.x_zero + preamble.x_timestep*(idx - preamble.point_offset))
+                voltages.append(preamble.y_zero + (preamble.y_multiplier*(entry-preamble.y_offset)))
+        if return_raw:
+            idxs = [i for i in range(len(raw_samples))]
+            return raw_samples,idxs,times,voltages
+        else:
+            return times,voltages
+        
+    @staticmethod
+    def save_waveform_csv(outfile:str,preamble:WaveformPreamble,data:_Sequence):
         with open(outfile,'w') as f:
             for entry in preamble:
                 f.write('{}\n'.format(entry))
