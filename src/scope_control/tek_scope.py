@@ -5,7 +5,7 @@ from typing import (
     Sequence as _Sequence,
     NamedTuple as _NamedTuple
     )
-
+from time import sleep
 class TekBinFmt(Enum):
     SignedInt = 'RI'
     UnsignedInt = 'RP'
@@ -21,6 +21,28 @@ class TekEncoding(Enum):
 class TekPointFmt(Enum):
     ENV = 'ENV'
     Y = 'Y'
+
+
+class TekChannel(Enum):
+    CH1 = 'CH1'
+    CH2 = 'CH2'
+    CH3 = 'CH3'
+    CH4 = 'CH4'
+    MATH = 'MATH'
+
+class TekMeasurement(Enum):
+    PERIOD = 'PERI'
+    MIN = 'MINI'
+    MAX = 'MAXI'
+    FREQUENCY = 'FREQ'
+    MEAN = 'MEAN'
+    PK2PK = 'PK2pk'
+    CRMS = 'CRMs'
+    PHASE = 'PHAse'
+    RISE = 'RISE'
+    FALL = 'FALL'
+    PWIDTH = 'PWIDTH'
+    NWIDTH = 'NWIDTH'
 
 # container initial declarations
 _WaveformID = namedtuple('WaveformID', 'name coupling vertical_scale horizontal_scale points mode')
@@ -129,8 +151,26 @@ class TekScope(Scope):
         self._settings = settings
         self._id = self.get_id()
         
-    def measure(self):
-        pass
+    def start_acquisition(self, single=False):
+        if single:
+            self.send_cmd('acquire:stopafter sequence')
+            self.wait(0.08)
+            self.send_cmd('acquire:state on')
+        else:
+            raise NotImplementedError('normal triggering not supported')
+
+    def stop_acquisition(self):
+        self.send_cmd('acquire:state OFF')
+
+    def measure(self, ch:TekChannel,measurement:TekMeasurement):
+        self.send_cmd('MEASU:IMM:SOURCE {}'.format(ch.value))
+        self.wait(0.08)
+        self.send_cmd('MEASU:IMM:TYPE {}'.format(measurement.value))
+        self.send_cmd('*OPC?')
+        while self.read_response().strip() != '1':
+            self.read_response() 
+        self.send_cmd('MEASU:IMM:VALU?')
+        return float(self.read_response().strip())
 
     def set_encoding(self):
         pass
